@@ -37,15 +37,27 @@ def untar(env, dest_dir, tar_file):
     os.rmdir(os.path.join(dest_dir, tar_name))
 
 
+class EnvVarEnv(object):
+
+    def __init__(self, envvars, env):
+        self._envvars = envvars
+        self._env = env
+
+    def cmd(self, args, **kwargs):
+        return self._env.cmd(
+            ["env"] + ["%s=%s" % (key, value) for key, value in self._envvars]
+            + args, **kwargs)
+
+
 class ModuleBase(object):
 
-    def __init__(self, prefix):
+    def __init__(self, build_dir, prefix, env_vars):
         self._env = cmd_env.VerboseWrapper(cmd_env.BasicEnv())
         self._source_dir = os.path.join(os.getcwd(), "source", self.name)
-        self._build_dir = os.path.join(os.getcwd(), "build", self.name)
+        self._build_dir = build_dir
         self._prefix = prefix
         self._build_env = cmd_env.PrefixCmdEnv(
-            cmd_env.in_dir(self._build_dir), self._env)
+            cmd_env.in_dir(self._build_dir), EnvVarEnv(env_vars, self._env))
         self._args = {"prefix": self._prefix,
                       "source_dir": self._source_dir}
 
@@ -105,6 +117,8 @@ class Module2(ModuleBase):
                        'CFLAGS="-Dinhibit_libc -D__gthr_posix_h -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
                        "%(source_dir)s/configure "
 
+                       "--with-as=`which nacl-as` " # Experimental
+
                        "--without-headers "
                        "--disable-libmudflap "
                        "--disable-decimal-float "
@@ -160,25 +174,53 @@ class Module3(ModuleBase):
         self._build_env.cmd(["sh", "-c", "make install"])
 
 
+def add_to_path(path, dir_path):
+    return "%s:%s" % (dir_path, path)
+
+
 mods = [
     Module1,
     Module2,
     Module3,
     ]
 
-def all_mods():
+def all_mods_shared_prefix():
     nodes = []
-    env = cmd_env.VerboseWrapper(cmd_env.BasicEnv())
-    prefix_base = os.path.join(os.getcwd(), "prefix")
+    path = os.environ["PATH"]
+    env_vars = []
+
+    prefix = os.path.join(os.getcwd(), "sharedprefix")
+    build_base = os.path.join(os.getcwd(), "build")
+    path = add_to_path(path, os.path.join(prefix, "bin"))
     for mod in mods:
-        # prefix = os.path.join(prefix_base, mod.name)
-        # os.environ["PATH"] = "%s:%s" % (prefix, os.environ["PATH"])
-        prefix = os.path.join(os.getcwd(), "sharedprefix")
-        os.environ["PATH"] = "%s:%s" % (os.path.join(prefix, "bin"),
-                                        os.environ["PATH"])
-        nodes.append(mod(prefix).all())
+        build_dir = os.path.join(build_base, mod.name)
+        nodes.append(mod(build_dir, prefix, env_vars).all())
+    env_vars.append(("PATH", path))
+    return action_tree.make_node(nodes, name="all")
+
+def all_mods_split_prefix():
+    nodes = []
+    path = os.environ["PATH"]
+    env_vars = []
+
+    prefix_base = os.path.join(os.getcwd(), "split/prefix")
+    build_base = os.path.join(os.getcwd(), "split/build")
+    for mod in mods:
+        prefix = os.path.join(prefix_base, mod.name)
+        build_dir = os.path.join(build_base, mod.name)
+        path = add_to_path(path, os.path.join(prefix, "bin"))
+        nodes.append(mod(build_dir, prefix, env_vars).all())
+    env_vars.append(("PATH", path))
     return action_tree.make_node(nodes, name="all")
 
 
+class AllMods(object):
+
+    @action_tree.action_node
+    def all(self):
+        return [("shared", all_mods_shared_prefix()),
+                ("split", all_mods_split_prefix())]
+
+
 if __name__ == "__main__":
-    action_tree.action_main(all_mods(), sys.argv[1:])
+    action_tree.action_main(AllMods().all, sys.argv[1:])
