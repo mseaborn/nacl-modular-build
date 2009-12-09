@@ -15,6 +15,13 @@ def get_one(lst):
     assert len(lst) == 1, lst
     return lst[0]
 
+def write_file(filename, data):
+    fh = open(filename, "w")
+    try:
+        fh.write(data)
+    finally:
+        fh.close()
+
 
 def untar_multiple(env, dest_dir, tar_files):
     assert os.listdir(dest_dir) == []
@@ -174,6 +181,47 @@ class Module3(ModuleBase):
         self._build_env.cmd(["sh", "-c", "make install"])
 
 
+class Module4(ModuleBase):
+
+    name = "crt"
+
+    def get(self, env, dest_dir):
+        pass
+
+    def configure(self, log):
+        pass
+
+    def make(self, log):
+        self._env.cmd(["mkdir", "-p", self._build_dir])
+        # This will probably not work if scons-out is not already populated.
+        self._build_env.cmd(
+            cmd_env.in_dir(nacl_dir) +
+            ["./scons", "MODE=nacl_extra_sdk", "extra_sdk_update",
+             "naclsdk_mode=custom:%s" % self._prefix, "--verbose"])
+
+
+class TestModule(ModuleBase):
+
+    name = "test"
+
+    def get(self, env, dest_dir):
+        pass
+
+    def configure(self, log):
+        pass
+
+    def make(self, log):
+        self._env.cmd(["mkdir", "-p", self._build_dir])
+        write_file(os.path.join(self._build_dir, "hellow.c"), """
+#include <stdio.h>
+int main() {
+  printf("Hello world\\n");
+  return 0;
+}
+""")
+        self._build_env.cmd(["sh", "-c", "nacl-gcc hellow.c -o hellow"])
+
+
 def add_to_path(path, dir_path):
     return "%s:%s" % (dir_path, path)
 
@@ -182,6 +230,8 @@ mods = [
     Module1,
     Module2,
     Module3,
+    Module4,
+    TestModule,
     ]
 
 def all_mods_shared_prefix():
@@ -189,8 +239,8 @@ def all_mods_shared_prefix():
     path = os.environ["PATH"]
     env_vars = []
 
-    prefix = os.path.join(os.getcwd(), "sharedprefix")
-    build_base = os.path.join(os.getcwd(), "build")
+    prefix = os.path.join(os.getcwd(), "shared/prefix")
+    build_base = os.path.join(os.getcwd(), "shared/build")
     path = add_to_path(path, os.path.join(prefix, "bin"))
     for mod in mods:
         build_dir = os.path.join(build_base, mod.name)
