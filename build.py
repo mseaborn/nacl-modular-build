@@ -109,7 +109,7 @@ def install_destdir(prefix_dir, install_dir, func):
     copy_onto(install_dir, prefix_dir)
 
 
-class Module1(ModuleBase):
+class ModuleBinutils(ModuleBase):
 
     name = "binutils"
 
@@ -136,7 +136,7 @@ class Module1(ModuleBase):
                                               "DESTDIR=%s" % dest]))
 
 
-class ModuleGcc(ModuleBase):
+class ModulePregcc(ModuleBase):
 
     name = "gcc"
 
@@ -186,7 +186,7 @@ class ModuleFullgcc(ModuleBase):
     name = "fullgcc"
 
     # TODO: deal with sharing source better
-    get = ModuleGcc.get.im_func
+    get = ModulePregcc.get.im_func
 
     def configure(self, log):
         self._env.cmd(["mkdir", "-p", self._build_dir])
@@ -227,7 +227,7 @@ class ModuleFullgcc(ModuleBase):
                                               "DESTDIR=%s" % dest]))
 
 
-class Module3(ModuleBase):
+class ModuleNewlib(ModuleBase):
 
     name = "newlib"
 
@@ -288,9 +288,10 @@ class ModuleNcthreads(ModuleBase):
         install_destdir(self._prefix, self._install_dir, do_make)
 
 
-class Module4(ModuleBase):
+class ModuleLibnacl(ModuleBase):
 
-    name = "crt"
+    # Covers libnacl.a, crt[1ni].o and misc libraries built with Scons.
+    name = "libnacl"
 
     def get(self, env, dest_dir):
         pass
@@ -343,12 +344,12 @@ def add_to_path(path, dir_path):
 
 
 mods = [
-    Module1,
-    ModuleGcc,
-    Module3,
+    ModuleBinutils,
+    ModulePregcc,
+    ModuleNewlib,
     ModuleNcthreads,
     ModuleFullgcc,
-    Module4,
+    ModuleLibnacl,
     TestModule,
     ]
 
