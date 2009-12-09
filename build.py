@@ -1,5 +1,7 @@
 
 import os
+import shutil
+import subprocess
 import sys
 
 import action_tree
@@ -58,11 +60,12 @@ class EnvVarEnv(object):
 
 class ModuleBase(object):
 
-    def __init__(self, build_dir, prefix, env_vars):
+    def __init__(self, build_dir, prefix, install_dir, env_vars):
         self._env = cmd_env.VerboseWrapper(cmd_env.BasicEnv())
         self._source_dir = os.path.join(os.getcwd(), "source", self.name)
         self._build_dir = build_dir
         self._prefix = prefix
+        self._install_dir = install_dir
         self._build_env = cmd_env.PrefixCmdEnv(
             cmd_env.in_dir(self._build_dir), EnvVarEnv(env_vars, self._env))
         self._args = {"prefix": self._prefix,
@@ -78,6 +81,32 @@ class ModuleBase(object):
             os.mkdir(temp_dir)
             self.get(self._env, temp_dir)
             os.rename(temp_dir, self._source_dir)
+
+
+def remove_tree(dir_path):
+    if os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
+
+
+def copy_onto(source_dir, dest_dir):
+    for leafname in os.listdir(source_dir):
+        subprocess.check_call(["cp", "-a", os.path.join(source_dir, leafname),
+                               "-t", dest_dir])
+
+
+def install_destdir(prefix_dir, install_dir, func):
+    temp_dir = "%s.tmp" % install_dir
+    remove_tree(temp_dir)
+    func(temp_dir)
+    remove_tree(install_dir)
+    # Tree is installed into $DESTDIR/$prefix.
+    # We need to strip $prefix.
+    assert prefix_dir.startswith("/")
+    os.rename(os.path.join(temp_dir, prefix_dir.lstrip("/")), install_dir)
+    # TODO: assert that temp_dir doesn't contain anything except prefix dirs
+    remove_tree(temp_dir)
+    subprocess.check_call(["mkdir", "-p", prefix_dir])
+    copy_onto(install_dir, prefix_dir)
 
 
 class Module1(ModuleBase):
@@ -101,7 +130,10 @@ class Module1(ModuleBase):
 
     def make(self, log):
         self._build_env.cmd(["make"])
-        self._build_env.cmd(["make", "install"])
+        install_destdir(
+            self._prefix, self._install_dir,
+            lambda dest: self._build_env.cmd(["make", "install",
+                                              "DESTDIR=%s" % dest]))
 
 
 class Module2(ModuleBase):
@@ -143,7 +175,10 @@ class Module2(ModuleBase):
         # The default make target doesn't work - it gives libiberty
         # configure failures.  Need to do "all-gcc" instead.
         self._build_env.cmd(["sh", "-c", "make all-gcc -j2"])
-        self._build_env.cmd(["sh", "-c", "make install-gcc"])
+        install_destdir(
+            self._prefix, self._install_dir,
+            lambda dest: self._build_env.cmd(["make", "install-gcc",
+                                              "DESTDIR=%s" % dest]))
 
 
 class Module3(ModuleBase):
@@ -178,7 +213,10 @@ class Module3(ModuleBase):
 
     def make(self, log):
         self._build_env.cmd(["sh", "-c", "make"])
-        self._build_env.cmd(["sh", "-c", "make install"])
+        install_destdir(
+            self._prefix, self._install_dir,
+            lambda dest: self._build_env.cmd(["make", "install",
+                                              "DESTDIR=%s" % dest]))
 
 
 class Module4(ModuleBase):
@@ -193,11 +231,20 @@ class Module4(ModuleBase):
 
     def make(self, log):
         self._env.cmd(["mkdir", "-p", self._build_dir])
-        # This will probably not work if scons-out is not already populated.
-        self._build_env.cmd(
-            cmd_env.in_dir(nacl_dir) +
-            ["./scons", "MODE=nacl_extra_sdk", "extra_sdk_update",
-             "naclsdk_mode=custom:%s" % self._prefix, "--verbose"])
+        # This requires scons to pass PATH through so that it can run
+        # nacl-gcc.  We set naclsdk_mode to point to an empty
+        # directory so it can't get nacl-gcc from there.  However, if
+        # scons-out is already populated, scons won't try to run
+        # nacl-gcc.
+        def do_make(dest):
+            self._build_env.cmd(
+                cmd_env.in_dir(nacl_dir) +
+                ["./scons", "MODE=nacl_extra_sdk", "extra_sdk_update",
+                 "naclsdk_mode=custom:%s" %
+                 os.path.join(dest, self._prefix.lstrip("/")),
+                 "naclsdk_validate=0",
+                 "--verbose"])
+        install_destdir(self._prefix, self._install_dir, do_make)
 
 
 class TestModule(ModuleBase):
@@ -241,10 +288,12 @@ def all_mods_shared_prefix():
 
     prefix = os.path.join(os.getcwd(), "shared/prefix")
     build_base = os.path.join(os.getcwd(), "shared/build")
+    install_base = os.path.join(os.getcwd(), "shared/install")
     path = add_to_path(path, os.path.join(prefix, "bin"))
     for mod in mods:
         build_dir = os.path.join(build_base, mod.name)
-        nodes.append(mod(build_dir, prefix, env_vars).all())
+        install_dir = os.path.join(install_base, mod.name)
+        nodes.append(mod(build_dir, prefix, install_dir, env_vars).all())
     env_vars.append(("PATH", path))
     return action_tree.make_node(nodes, name="all")
 
@@ -255,11 +304,13 @@ def all_mods_split_prefix():
 
     prefix_base = os.path.join(os.getcwd(), "split/prefix")
     build_base = os.path.join(os.getcwd(), "split/build")
+    install_base = os.path.join(os.getcwd(), "shared/install")
     for mod in mods:
         prefix = os.path.join(prefix_base, mod.name)
         build_dir = os.path.join(build_base, mod.name)
+        install_dir = os.path.join(install_base, mod.name)
         path = add_to_path(path, os.path.join(prefix, "bin"))
-        nodes.append(mod(build_dir, prefix, env_vars).all())
+        nodes.append(mod(build_dir, prefix, install_dir, env_vars).all())
     env_vars.append(("PATH", path))
     return action_tree.make_node(nodes, name="all")
 
