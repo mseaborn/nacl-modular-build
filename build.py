@@ -136,7 +136,7 @@ class Module1(ModuleBase):
                                               "DESTDIR=%s" % dest]))
 
 
-class Module2(ModuleBase):
+class ModuleGcc(ModuleBase):
 
     name = "gcc"
 
@@ -181,6 +181,52 @@ class Module2(ModuleBase):
                                               "DESTDIR=%s" % dest]))
 
 
+class ModuleFullgcc(ModuleBase):
+
+    name = "fullgcc"
+
+    # TODO: deal with sharing source better
+    get = ModuleGcc.get.im_func
+
+    def configure(self, log):
+        self._env.cmd(["mkdir", "-p", self._build_dir])
+        # CFLAGS has to be passed via environment because the
+        # configure script can't cope with spaces otherwise.
+        self._build_env.cmd(["sh", "-c",
+                       "CC=gcc "
+                       'CFLAGS="-Dinhibit_libc -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
+                       "%(source_dir)s/configure "
+
+                       "--with-as=`which nacl-as` " # Experimental
+                       "--with-newlib "
+                       "--enable-threads=nacl "
+                       "--enable-tls "
+
+                       # "--without-headers "
+                       "--disable-libmudflap "
+                       "--disable-decimal-float "
+                       "--disable-libssp "
+                       "--disable-libgomp "
+                       "--enable-languages=c "
+                       # "--disable-threads " # pregcc
+                       "--disable-libstdcxx-pch "
+                       "--disable-shared "
+                       '--enable-languages="c,c++" '
+
+                       "--prefix=%(prefix)s "
+                       "--target=nacl"
+                       % self._args])
+
+    def make(self, log):
+        # The default make target doesn't work - it gives libiberty
+        # configure failures.  Need to do "all-gcc" instead.
+        self._build_env.cmd(["sh", "-c", "make all -j2"])
+        install_destdir(
+            self._prefix, self._install_dir,
+            lambda dest: self._build_env.cmd(["make", "install",
+                                              "DESTDIR=%s" % dest]))
+
+
 class Module3(ModuleBase):
 
     name = "newlib"
@@ -217,6 +263,29 @@ class Module3(ModuleBase):
             self._prefix, self._install_dir,
             lambda dest: self._build_env.cmd(["make", "install",
                                               "DESTDIR=%s" % dest]))
+
+
+class ModuleNcthreads(ModuleBase):
+
+    name = "nc_threads"
+
+    def get(self, env, dest_dir):
+        pass
+
+    def configure(self, log):
+        pass
+
+    def make(self, log):
+        self._env.cmd(["mkdir", "-p", self._build_dir])
+        def do_make(dest):
+            self._build_env.cmd(
+                cmd_env.in_dir(nacl_dir) +
+                ["./scons", "MODE=nacl_extra_sdk", "install_libpthread",
+                 "naclsdk_mode=custom:%s" %
+                 os.path.join(dest, self._prefix.lstrip("/")),
+                 "naclsdk_validate=0",
+                 "--verbose"])
+        install_destdir(self._prefix, self._install_dir, do_make)
 
 
 class Module4(ModuleBase):
@@ -275,8 +344,10 @@ def add_to_path(path, dir_path):
 
 mods = [
     Module1,
-    Module2,
+    ModuleGcc,
     Module3,
+    ModuleNcthreads,
+    ModuleFullgcc,
     Module4,
     TestModule,
     ]
