@@ -114,7 +114,7 @@ class ModuleBase(object):
 
     def all(self):
         return action_tree.make_node(
-            [self.unpack, self.configure, self.make], self.name)
+            [self.unpack, self.configure, self.make, self.install], self.name)
 
     def unpack(self, log):
         if not os.path.exists(self._source_dir):
@@ -159,109 +159,105 @@ newlib_tree = PatchedTree(TarballTree("newlib/newlib-1.17.0.tar.gz"),
                           "newlib-1.17.0.patch")
 
 
-class ModuleBinutils(ModuleBase):
+def Module(name, source, configure_cmd, make_cmd, install_cmd):
+    class Mod(ModuleBase):
 
-    name = "binutils"
-    source = binutils_tree
+        # These assignments don't work because of Python's odd scoping rules:
+        # name = name
+        # source = source
 
-    def configure(self, log):
-        self._env.cmd(["mkdir", "-p", self._build_dir])
-        self._build_env.cmd(["sh", "-c",
-                       "%(source_dir)s/configure "
-                       'CFLAGS="-DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
-                       "--prefix=%(prefix)s "
-                       "--target=nacl"
-                       % self._args])
+        def _subst(self, cmd):
+            return [arg % self._args for arg in cmd]
 
-    def make(self, log):
-        self._build_env.cmd(["make"])
-        install_destdir(
-            self._prefix, self._install_dir,
-            lambda dest: self._build_env.cmd(["make", "install",
-                                              "DESTDIR=%s" % dest]))
+        def configure(self, log):
+            self._env.cmd(["mkdir", "-p", self._build_dir])
+            self._build_env.cmd(self._subst(configure_cmd))
 
+        def make(self, log):
+            self._build_env.cmd(self._subst(make_cmd))
 
-class ModulePregcc(ModuleBase):
+        def install(self, log):
+            def run(dest):
+                cmd = [arg % {"destdir": dest} for arg in install_cmd]
+                self._build_env.cmd(cmd)
+            install_destdir(self._prefix, self._install_dir, run)
 
-    name = "gcc"
-    source = gcc_tree
-
-    def configure(self, log):
-        self._env.cmd(["mkdir", "-p", self._build_dir])
-        # CFLAGS has to be passed via environment because the
-        # configure script can't cope with spaces otherwise.
-        self._build_env.cmd(["sh", "-c",
-                       "CC=gcc "
-                       'CFLAGS="-Dinhibit_libc -D__gthr_posix_h -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
-                       "%(source_dir)s/configure "
-
-                       "--with-as=`which nacl-as` " # Experimental
-
-                       "--without-headers "
-                       "--disable-libmudflap "
-                       "--disable-decimal-float "
-                       "--disable-libssp "
-                       "--enable-languages=c "
-                       "--disable-threads " # pregcc
-                       "--disable-libstdcxx-pch "
-                       "--disable-shared "
-
-                       "--prefix=%(prefix)s "
-                       "--target=nacl"
-                       % self._args])
-
-    def make(self, log):
-        # The default make target doesn't work - it gives libiberty
-        # configure failures.  Need to do "all-gcc" instead.
-        self._build_env.cmd(["sh", "-c", "make all-gcc -j2"])
-        install_destdir(
-            self._prefix, self._install_dir,
-            lambda dest: self._build_env.cmd(["make", "install-gcc",
-                                              "DESTDIR=%s" % dest]))
+    Mod.name = name
+    Mod.source = source
+    return Mod
 
 
-class ModuleFullgcc(ModuleBase):
+ModuleBinutils = Module(
+    name="binutils",
+    source=binutils_tree,
+    configure_cmd=["sh", "-c",
+                   "%(source_dir)s/configure "
+                   'CFLAGS="-DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
+                   "--prefix=%(prefix)s "
+                   "--target=nacl"],
+    make_cmd=["make", "-j4"],
+    install_cmd=["make", "install", "DESTDIR=%(destdir)s"])
 
-    name = "fullgcc"
-    source = gcc_tree
 
-    def configure(self, log):
-        self._env.cmd(["mkdir", "-p", self._build_dir])
-        # CFLAGS has to be passed via environment because the
-        # configure script can't cope with spaces otherwise.
-        self._build_env.cmd(["sh", "-c",
-                       "CC=gcc "
-                       'CFLAGS="-Dinhibit_libc -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
-                       "%(source_dir)s/configure "
+ModulePregcc = Module(
+    name="pregcc",
+    source=gcc_tree,
+    # CFLAGS has to be passed via environment because the
+    # configure script can't cope with spaces otherwise.
+    configure_cmd=["sh", "-c",
+                   "CC=gcc "
+                   'CFLAGS="-Dinhibit_libc -D__gthr_posix_h -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
+                   "%(source_dir)s/configure "
 
-                       "--with-as=`which nacl-as` " # Experimental
-                       "--with-newlib "
-                       "--enable-threads=nacl "
-                       "--enable-tls "
+                   "--with-as=`which nacl-as` " # Experimental
 
-                       # "--without-headers "
-                       "--disable-libmudflap "
-                       "--disable-decimal-float "
-                       "--disable-libssp "
-                       "--disable-libgomp "
-                       "--enable-languages=c "
-                       # "--disable-threads " # pregcc
-                       "--disable-libstdcxx-pch "
-                       "--disable-shared "
-                       '--enable-languages="c,c++" '
+                   "--without-headers "
+                   "--disable-libmudflap "
+                   "--disable-decimal-float "
+                   "--disable-libssp "
+                   "--enable-languages=c "
+                   "--disable-threads " # pregcc
+                   "--disable-libstdcxx-pch "
+                   "--disable-shared "
 
-                       "--prefix=%(prefix)s "
-                       "--target=nacl"
-                       % self._args])
+                   "--prefix=%(prefix)s "
+                   "--target=nacl"],
+    # The default make target doesn't work - it gives libiberty
+    # configure failures.  Need to do "all-gcc" instead.
+    make_cmd=["make", "all-gcc", "-j2"],
+    install_cmd=["make", "install-gcc", "DESTDIR=%(destdir)s"])
 
-    def make(self, log):
-        # The default make target doesn't work - it gives libiberty
-        # configure failures.  Need to do "all-gcc" instead.
-        self._build_env.cmd(["sh", "-c", "make all -j2"])
-        install_destdir(
-            self._prefix, self._install_dir,
-            lambda dest: self._build_env.cmd(["make", "install",
-                                              "DESTDIR=%s" % dest]))
+
+ModuleFullgcc = Module(
+    name="fullgcc",
+    source=gcc_tree,
+    # CFLAGS has to be passed via environment because the
+    # configure script can't cope with spaces otherwise.
+    configure_cmd=["sh", "-c",
+                   "CC=gcc "
+                   'CFLAGS="-Dinhibit_libc -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
+                   "%(source_dir)s/configure "
+
+                   "--with-as=`which nacl-as` " # Experimental
+                   "--with-newlib "
+                   "--enable-threads=nacl "
+                   "--enable-tls "
+
+                   # "--without-headers "
+                   "--disable-libmudflap "
+                   "--disable-decimal-float "
+                   "--disable-libssp "
+                   "--disable-libgomp "
+                   "--enable-languages=c "
+                   # "--disable-threads " # pregcc
+                   "--disable-libstdcxx-pch "
+                   "--disable-shared "
+                   '--enable-languages="c,c++" '
+
+                   "--prefix=%(prefix)s "
+                   "--target=nacl"],
+    make_cmd=["make", "all", "-j2"],
+    install_cmd=["make", "install", "DESTDIR=%(destdir)s"])
 
 
 class ModuleNewlib(ModuleBase):
@@ -291,6 +287,8 @@ class ModuleNewlib(ModuleBase):
 
     def make(self, log):
         self._build_env.cmd(["sh", "-c", "make"])
+
+    def install(self, log):
         install_destdir(
             self._prefix, self._install_dir,
             lambda dest: self._build_env.cmd(["make", "install",
@@ -306,6 +304,9 @@ class ModuleNcthreads(ModuleBase):
         pass
 
     def make(self, log):
+        pass
+
+    def install(self, log):
         self._env.cmd(["mkdir", "-p", self._build_dir])
         def do_make(dest):
             self._build_env.cmd(
@@ -328,6 +329,9 @@ class ModuleLibnacl(ModuleBase):
         pass
 
     def make(self, log):
+        pass
+
+    def install(self, log):
         self._env.cmd(["mkdir", "-p", self._build_dir])
         # This requires scons to pass PATH through so that it can run
         # nacl-gcc.  We set naclsdk_mode to point to an empty
@@ -363,6 +367,9 @@ int main() {
 }
 """)
         self._build_env.cmd(["sh", "-c", "nacl-gcc hellow.c -o hellow"])
+
+    def install(self, log):
+        pass
 
 
 def add_to_path(path, dir_path):
