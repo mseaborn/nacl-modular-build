@@ -46,6 +46,47 @@ def untar(env, dest_dir, tar_file):
     os.rmdir(os.path.join(dest_dir, tar_name))
 
 
+# write_tree(dest_dir) makes a fresh copy of the tree in dest_dir.
+# It can assume that dest_dir is initially empty.
+# The state of dest_dir is undefined if write_tree() fails.
+
+class EmptyTree(object):
+
+    def write_tree(self, env, dest_dir):
+        pass
+
+
+class TarballTree(object):
+
+    def __init__(self, tar_path):
+        self._tar_path = tar_path
+
+    def write_tree(self, env, dest_dir):
+        untar(env, dest_dir, os.path.join(tar_dir, self._tar_path))
+
+
+class MultiTarballTree(object):
+
+    def __init__(self, tar_paths):
+        self._tar_paths = tar_paths
+
+    def write_tree(self, env, dest_dir):
+        untar_multiple(env, dest_dir, [os.path.join(tar_dir, tar_path)
+                                       for tar_path in self._tar_paths])
+
+
+class PatchedTree(object):
+
+    def __init__(self, orig_tree, patch_file):
+        self._orig_tree = orig_tree
+        self._patch_file = patch_file
+
+    def write_tree(self, env, dest_dir):
+        self._orig_tree.write_tree(env, dest_dir)
+        env.cmd(["patch", "-d", dest_dir, "-p1",
+                 "-i", os.path.join(patch_dir, self._patch_file)])
+
+
 class EnvVarEnv(object):
 
     def __init__(self, envvars, env):
@@ -78,8 +119,8 @@ class ModuleBase(object):
     def unpack(self, log):
         if not os.path.exists(self._source_dir):
             temp_dir = "%s.temp" % self._source_dir
-            os.mkdir(temp_dir)
-            self.get(self._env, temp_dir)
+            os.makedirs(temp_dir)
+            self.source.write_tree(self._env, temp_dir)
             os.rename(temp_dir, self._source_dir)
 
 
@@ -109,15 +150,19 @@ def install_destdir(prefix_dir, install_dir, func):
     copy_onto(install_dir, prefix_dir)
 
 
+binutils_tree = PatchedTree(TarballTree("binutils/binutils-2.20.tar.bz2"), 
+                            "binutils-2.20.patch")
+gcc_tree = PatchedTree(MultiTarballTree(["gcc/gcc-core-4.2.2.tar.bz2",
+                                         "gcc/gcc-g++-4.2.2.tar.bz2"]),
+                       "gcc-4.2.2.patch")
+newlib_tree = PatchedTree(TarballTree("newlib/newlib-1.17.0.tar.gz"),
+                          "newlib-1.17.0.patch")
+
+
 class ModuleBinutils(ModuleBase):
 
     name = "binutils"
-
-    def get(self, env, dest_dir):
-        untar(env, dest_dir,
-              os.path.join(tar_dir, "binutils/binutils-2.20.tar.bz2"))
-        self._env.cmd(["patch", "-d", dest_dir, "-p1",
-                       "-i", os.path.join(patch_dir, "binutils-2.20.patch")])
+    source = binutils_tree
 
     def configure(self, log):
         self._env.cmd(["mkdir", "-p", self._build_dir])
@@ -139,13 +184,7 @@ class ModuleBinutils(ModuleBase):
 class ModulePregcc(ModuleBase):
 
     name = "gcc"
-
-    def get(self, env, dest_dir):
-        untar_multiple(env, dest_dir,
-                       [os.path.join(tar_dir, "gcc/gcc-core-4.2.2.tar.bz2"),
-                        os.path.join(tar_dir, "gcc/gcc-g++-4.2.2.tar.bz2")])
-        self._env.cmd(["patch", "-d", dest_dir, "-p1",
-                       "-i", os.path.join(patch_dir, "gcc-4.2.2.patch")])
+    source = gcc_tree
 
     def configure(self, log):
         self._env.cmd(["mkdir", "-p", self._build_dir])
@@ -184,9 +223,7 @@ class ModulePregcc(ModuleBase):
 class ModuleFullgcc(ModuleBase):
 
     name = "fullgcc"
-
-    # TODO: deal with sharing source better
-    get = ModulePregcc.get.im_func
+    source = gcc_tree
 
     def configure(self, log):
         self._env.cmd(["mkdir", "-p", self._build_dir])
@@ -230,12 +267,7 @@ class ModuleFullgcc(ModuleBase):
 class ModuleNewlib(ModuleBase):
 
     name = "newlib"
-
-    def get(self, env, dest_dir):
-        untar(env, dest_dir,
-              os.path.join(tar_dir, "newlib/newlib-1.17.0.tar.gz"))
-        self._env.cmd(["patch", "-d", dest_dir, "-p1",
-                       "-i", os.path.join(patch_dir, "newlib-1.17.0.patch")])
+    source = newlib_tree
 
     def configure(self, log):
         # This is like exporting the kernel headers to glibc.
@@ -268,9 +300,7 @@ class ModuleNewlib(ModuleBase):
 class ModuleNcthreads(ModuleBase):
 
     name = "nc_threads"
-
-    def get(self, env, dest_dir):
-        pass
+    source = EmptyTree()
 
     def configure(self, log):
         pass
@@ -292,9 +322,7 @@ class ModuleLibnacl(ModuleBase):
 
     # Covers libnacl.a, crt[1ni].o and misc libraries built with Scons.
     name = "libnacl"
-
-    def get(self, env, dest_dir):
-        pass
+    source = EmptyTree()
 
     def configure(self, log):
         pass
@@ -320,9 +348,7 @@ class ModuleLibnacl(ModuleBase):
 class TestModule(ModuleBase):
 
     name = "test"
-
-    def get(self, env, dest_dir):
-        pass
+    source = EmptyTree()
 
     def configure(self, log):
         pass
