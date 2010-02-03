@@ -319,6 +319,36 @@ class ModuleNcthreads(ModuleBase):
         install_destdir(self._prefix, self._install_dir, do_make)
 
 
+class ModuleLibnaclHeaders(ModuleBase):
+
+    name = "libnacl_headers"
+    source = EmptyTree()
+
+    def configure(self, log):
+        pass
+
+    def make(self, log):
+        pass
+
+    def install(self, log):
+        self._env.cmd(["mkdir", "-p", self._build_dir])
+        # This requires scons to pass PATH through so that it can run
+        # nacl-gcc.  We set naclsdk_mode to point to an empty
+        # directory so it can't get nacl-gcc from there.  However, if
+        # scons-out is already populated, scons won't try to run
+        # nacl-gcc.
+        def do_make(dest):
+            self._build_env.cmd(
+                cmd_env.in_dir(nacl_dir) +
+                ["./scons", "MODE=nacl_extra_sdk", "extra_sdk_update_header",
+                 "nocpp=yes",
+                 "naclsdk_mode=custom:%s" %
+                 os.path.join(dest, self._prefix.lstrip("/")),
+                 "naclsdk_validate=0",
+                 "--verbose"])
+        install_destdir(self._prefix, self._install_dir, do_make)
+
+
 class ModuleLibnacl(ModuleBase):
 
     # Covers libnacl.a, crt[1ni].o and misc libraries built with Scons.
@@ -342,6 +372,7 @@ class ModuleLibnacl(ModuleBase):
             self._build_env.cmd(
                 cmd_env.in_dir(nacl_dir) +
                 ["./scons", "MODE=nacl_extra_sdk", "extra_sdk_update",
+                 "nocpp=yes",
                  "naclsdk_mode=custom:%s" %
                  os.path.join(dest, self._prefix.lstrip("/")),
                  "naclsdk_validate=0",
@@ -382,6 +413,7 @@ mods = [
     ModuleNewlib,
     ModuleNcthreads,
     ModuleFullgcc,
+    ModuleLibnaclHeaders,
     ModuleLibnacl,
     TestModule,
     ]
