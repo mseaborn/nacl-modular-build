@@ -8,6 +8,7 @@ import action_tree
 import cmd_env
 
 
+# TODO: don't hard code!
 nacl_dir = "/home/mseaborn/devel/nacl-trunk/src/native_client"
 tar_dir = "/home/mseaborn/devel/nacl-trunk/src/third_party"
 patch_dir = "/home/mseaborn/devel/nacl-trunk/src/native_client/tools/patches"
@@ -36,6 +37,7 @@ def untar_multiple(env, dest_dir, tar_files):
     os.rmdir(os.path.join(dest_dir, tar_name))
 
 
+# TODO: inline this
 def untar(env, dest_dir, tar_file):
     assert os.listdir(dest_dir) == []
     env.cmd(["tar", "-C", dest_dir, "-xf", tar_file])
@@ -46,6 +48,7 @@ def untar(env, dest_dir, tar_file):
     os.rmdir(os.path.join(dest_dir, tar_name))
 
 
+# TODO: create interface class.
 # write_tree(dest_dir) makes a fresh copy of the tree in dest_dir.
 # It can assume that dest_dir is initially empty.
 # The state of dest_dir is undefined if write_tree() fails.
@@ -160,6 +163,7 @@ newlib_tree = PatchedTree(TarballTree("newlib/newlib-1.17.0.tar.gz"),
 
 
 def Module(name, source, configure_cmd, make_cmd, install_cmd):
+    # TODO: this nested class is ugly
     class Mod(ModuleBase):
 
         # These assignments don't work because of Python's odd scoping rules:
@@ -199,6 +203,7 @@ ModuleBinutils = Module(
     install_cmd=["make", "install", "DESTDIR=%(destdir)s"])
 
 
+# TODO: reduce option duplication
 ModulePregcc = Module(
     name="pregcc",
     source=gcc_tree,
@@ -418,6 +423,7 @@ mods = [
     TestModule,
     ]
 
+# TODO: reduce duplication
 def all_mods_shared_prefix():
     nodes = []
     path = os.environ["PATH"]
