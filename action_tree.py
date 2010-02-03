@@ -19,8 +19,6 @@
 import optparse
 import sys
 
-import build_log
-
 
 # Workaround for Python's variable binding semantics.
 def thunkify(func, *args):
@@ -144,8 +142,21 @@ def negative_filter_tree(action, label):
     return action
 
 
+# Originally from build_log.py.
+class DummyLogWriter(object):
+
+    def start(self):
+        pass
+
+    def child_log(self, name, do_start=True):
+        return DummyLogWriter()
+
+    def finish(self, result):
+        pass
+
+
 def action_main(action, args, stdout=sys.stdout,
-                log=build_log.DummyLogWriter()):
+                log=DummyLogWriter()):
     parser = optparse.OptionParser()
     parser.add_option("-f", "--filter", dest="filters", default=[],
                       action="append", help="Filter to a subset of the tree")

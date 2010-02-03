@@ -20,7 +20,6 @@ import StringIO
 import unittest
 
 import action_tree
-import build_log
 
 
 class ExampleTree(object):
@@ -125,7 +124,7 @@ class ActionTreeTest(unittest.TestCase):
 
     def test_running(self):
         example = ExampleTree()
-        example.all_steps(build_log.DummyLogWriter())
+        example.all_steps(action_tree.DummyLogWriter())
         self.assertEquals(example.got, ["foo", "bar", "baz", "qux", "quux"])
 
     def test_running_subtrees(self):
