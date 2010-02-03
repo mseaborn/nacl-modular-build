@@ -377,7 +377,6 @@ class ModuleLibnacl(ModuleBase):
             self._build_env.cmd(
                 cmd_env.in_dir(nacl_dir) +
                 ["./scons", "MODE=nacl_extra_sdk", "extra_sdk_update",
-                 "nocpp=yes",
                  "naclsdk_mode=custom:%s" %
                  os.path.join(dest, self._prefix.lstrip("/")),
                  "naclsdk_validate=0",
