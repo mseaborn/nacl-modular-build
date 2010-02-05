@@ -451,7 +451,7 @@ def all_mods_split_prefix(base_dir):
     source_base = os.path.join(base_dir, "source")
     prefix_base = os.path.join(base_dir, "split/prefix")
     build_base = os.path.join(base_dir, "split/build")
-    install_base = os.path.join(base_dir, "shared/install")
+    install_base = os.path.join(base_dir, "split/install")
     for mod in mods:
         source_dir = os.path.join(source_base, mod.name)
         prefix = os.path.join(prefix_base, mod.name)
