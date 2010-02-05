@@ -207,7 +207,16 @@ ModuleBinutils = Module(
     install_cmd=["make", "install", "DESTDIR=%(destdir)s"])
 
 
-# TODO: reduce option duplication
+common_gcc_options = (
+    "--with-as=`which nacl-as` " # Experimental
+    "--disable-libmudflap "
+    "--disable-decimal-float "
+    "--disable-libssp "
+    "--disable-libstdcxx-pch "
+    "--disable-shared "
+    "--prefix=%(prefix)s "
+    "--target=nacl ")
+
 ModulePregcc = Module(
     name="pregcc",
     source=gcc_tree,
@@ -217,25 +226,14 @@ ModulePregcc = Module(
                    "CC=gcc "
                    'CFLAGS="-Dinhibit_libc -D__gthr_posix_h -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
                    "%(source_dir)s/configure "
-
-                   "--with-as=`which nacl-as` " # Experimental
-
                    "--without-headers "
-                   "--disable-libmudflap "
-                   "--disable-decimal-float "
-                   "--disable-libssp "
                    "--enable-languages=c "
                    "--disable-threads " # pregcc
-                   "--disable-libstdcxx-pch "
-                   "--disable-shared "
-
-                   "--prefix=%(prefix)s "
-                   "--target=nacl"],
+                   + common_gcc_options],
     # The default make target doesn't work - it gives libiberty
     # configure failures.  Need to do "all-gcc" instead.
     make_cmd=["make", "all-gcc", "-j2"],
     install_cmd=["make", "install-gcc", "DESTDIR=%(destdir)s"])
-
 
 ModuleFullgcc = Module(
     name="fullgcc",
@@ -246,25 +244,12 @@ ModuleFullgcc = Module(
                    "CC=gcc "
                    'CFLAGS="-Dinhibit_libc -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
                    "%(source_dir)s/configure "
-
-                   "--with-as=`which nacl-as` " # Experimental
                    "--with-newlib "
                    "--enable-threads=nacl "
                    "--enable-tls "
-
-                   # "--without-headers "
-                   "--disable-libmudflap "
-                   "--disable-decimal-float "
-                   "--disable-libssp "
                    "--disable-libgomp "
-                   "--enable-languages=c "
-                   # "--disable-threads " # pregcc
-                   "--disable-libstdcxx-pch "
-                   "--disable-shared "
                    '--enable-languages="c,c++" '
-
-                   "--prefix=%(prefix)s "
-                   "--target=nacl"],
+                   + common_gcc_options],
     make_cmd=["make", "all", "-j2"],
     install_cmd=["make", "install", "DESTDIR=%(destdir)s"])
 
