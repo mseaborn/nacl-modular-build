@@ -423,44 +423,35 @@ mods = [
     TestModule,
     ]
 
-# TODO: reduce duplication
-def all_mods_shared_prefix(base_dir):
-    nodes = []
-    path = os.environ["PATH"]
-    env_vars = []
 
-    source_base = os.path.join(base_dir, "source")
-    prefix = os.path.join(base_dir, "shared/prefix")
-    build_base = os.path.join(base_dir, "shared/build")
-    install_base = os.path.join(base_dir, "shared/install")
-    path = add_to_path(path, os.path.join(prefix, "bin"))
+def all_mods(top_dir, use_shared_prefix):
+    nodes = []
+    env_vars = []
+    path_dirs = []
+
+    source_base = os.path.join(top_dir, "source")
+    if use_shared_prefix:
+        base_dir = os.path.join(top_dir, "shared")
+        prefix = os.path.join(base_dir, "prefix")
+        path_dirs.append(os.path.join(prefix, "bin"))
+    else:
+        base_dir = os.path.join(top_dir, "split")
+        prefix_base = os.path.join(base_dir, "prefixes")
+
     for mod in mods:
+        if not use_shared_prefix:
+            # TODO: In split-prefix case, we don't really need "prefix" dirs.
+            # Just use the "install" dirs.
+            prefix = os.path.join(prefix_base, mod.name)
+            path_dirs.append(os.path.join(prefix, "bin"))
         source_dir = os.path.join(source_base, mod.name)
-        build_dir = os.path.join(build_base, mod.name)
-        install_dir = os.path.join(install_base, mod.name)
+        build_dir = os.path.join(base_dir, "build", mod.name)
+        install_dir = os.path.join(base_dir, "install", mod.name)
         builder = mod(source_dir, build_dir, prefix, install_dir, env_vars)
         nodes.append(builder.all())
-    env_vars.append(("PATH", path))
-    return action_tree.make_node(nodes, name="all")
 
-def all_mods_split_prefix(base_dir):
-    nodes = []
-    path = os.environ["PATH"]
-    env_vars = []
-
-    source_base = os.path.join(base_dir, "source")
-    prefix_base = os.path.join(base_dir, "split/prefix")
-    build_base = os.path.join(base_dir, "split/build")
-    install_base = os.path.join(base_dir, "split/install")
-    for mod in mods:
-        source_dir = os.path.join(source_base, mod.name)
-        prefix = os.path.join(prefix_base, mod.name)
-        build_dir = os.path.join(build_base, mod.name)
-        install_dir = os.path.join(install_base, mod.name)
-        path = add_to_path(path, os.path.join(prefix, "bin"))
-        builder = mod(source_dir, build_dir, prefix, install_dir, env_vars)
-        nodes.append(builder.all())
-    env_vars.append(("PATH", path))
+    env_vars.append(("PATH",
+                     reduce(add_to_path, path_dirs, os.environ["PATH"])))
     return action_tree.make_node(nodes, name="all")
 
 
@@ -469,8 +460,8 @@ class AllMods(object):
     @action_tree.action_node
     def all(self):
         base_dir = os.getcwd()
-        return [("shared", all_mods_shared_prefix(base_dir)),
-                ("split", all_mods_split_prefix(base_dir))]
+        return [("shared", all_mods(base_dir, use_shared_prefix=True)),
+                ("split", all_mods(base_dir, use_shared_prefix=False))]
 
 
 if __name__ == "__main__":
