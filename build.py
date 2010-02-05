@@ -48,18 +48,22 @@ def untar(env, dest_dir, tar_file):
     os.rmdir(os.path.join(dest_dir, tar_name))
 
 
-# TODO: create interface class.
-# write_tree(dest_dir) makes a fresh copy of the tree in dest_dir.
-# It can assume that dest_dir is initially empty.
-# The state of dest_dir is undefined if write_tree() fails.
+class DirTree(object):
 
-class EmptyTree(object):
+    # write_tree(dest_dir) makes a fresh copy of the tree in dest_dir.
+    # It can assume that dest_dir is initially empty.
+    # The state of dest_dir is undefined if write_tree() fails.
+    def write_tree(self, env, dest_dir):
+        raise NotImplementedError()
+
+
+class EmptyTree(DirTree):
 
     def write_tree(self, env, dest_dir):
         pass
 
 
-class TarballTree(object):
+class TarballTree(DirTree):
 
     def __init__(self, tar_path):
         self._tar_path = tar_path
@@ -68,7 +72,7 @@ class TarballTree(object):
         untar(env, dest_dir, os.path.join(tar_dir, self._tar_path))
 
 
-class MultiTarballTree(object):
+class MultiTarballTree(DirTree):
 
     def __init__(self, tar_paths):
         self._tar_paths = tar_paths
@@ -78,7 +82,7 @@ class MultiTarballTree(object):
                                        for tar_path in self._tar_paths])
 
 
-class PatchedTree(object):
+class PatchedTree(DirTree):
 
     def __init__(self, orig_tree, patch_file):
         self._orig_tree = orig_tree
