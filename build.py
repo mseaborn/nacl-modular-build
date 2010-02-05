@@ -41,28 +41,6 @@ def write_file(filename, data):
         fh.close()
 
 
-def untar_multiple(env, dest_dir, tar_files):
-    assert os.listdir(dest_dir) == []
-    for tar_file in tar_files:
-        env.cmd(["tar", "-C", dest_dir, "-xf", tar_file])
-    tar_name = get_one(os.listdir(dest_dir))
-    for leafname in os.listdir(os.path.join(dest_dir, tar_name)):
-        os.rename(os.path.join(dest_dir, tar_name, leafname),
-                  os.path.join(dest_dir, leafname))
-    os.rmdir(os.path.join(dest_dir, tar_name))
-
-
-# TODO: inline this
-def untar(env, dest_dir, tar_file):
-    assert os.listdir(dest_dir) == []
-    env.cmd(["tar", "-C", dest_dir, "-xf", tar_file])
-    tar_name = get_one(os.listdir(dest_dir))
-    for leafname in os.listdir(os.path.join(dest_dir, tar_name)):
-        os.rename(os.path.join(dest_dir, tar_name, leafname),
-                  os.path.join(dest_dir, leafname))
-    os.rmdir(os.path.join(dest_dir, tar_name))
-
-
 class DirTree(object):
 
     # write_tree(dest_dir) makes a fresh copy of the tree in dest_dir.
@@ -84,16 +62,33 @@ class TarballTree(DirTree):
         self._tar_path = tar_path
 
     def write_tree(self, env, dest_dir):
-        untar(env, dest_dir, self._tar_path)
+        # Tarballs normally contain a single top-level directory with
+        # a name like foo-module-1.2.3.  We strip this off.
+        assert os.listdir(dest_dir) == []
+        env.cmd(["tar", "-C", dest_dir, "-xf", self._tar_path])
+        tar_name = get_one(os.listdir(dest_dir))
+        for leafname in os.listdir(os.path.join(dest_dir, tar_name)):
+            os.rename(os.path.join(dest_dir, tar_name, leafname),
+                      os.path.join(dest_dir, leafname))
+        os.rmdir(os.path.join(dest_dir, tar_name))
 
 
+# This handles gcc, where two source tarballs must be unpacked on top
+# of each other.
 class MultiTarballTree(DirTree):
 
     def __init__(self, tar_paths):
         self._tar_paths = tar_paths
 
     def write_tree(self, env, dest_dir):
-        untar_multiple(env, dest_dir, self._tar_paths)
+        assert os.listdir(dest_dir) == []
+        for tar_file in self._tar_paths:
+            env.cmd(["tar", "-C", dest_dir, "-xf", tar_file])
+        tar_name = get_one(os.listdir(dest_dir))
+        for leafname in os.listdir(os.path.join(dest_dir, tar_name)):
+            os.rename(os.path.join(dest_dir, tar_name, leafname),
+                      os.path.join(dest_dir, leafname))
+        os.rmdir(os.path.join(dest_dir, tar_name))
 
 
 class PatchedTree(DirTree):

@@ -53,7 +53,13 @@ class Test(TempDirTestCase):
                               cwd=temp_dir)
 
         dest_dir = self.make_temp_dir()
-        build.untar(cmd_env.BasicEnv(), dest_dir, tar_file)
+        tree = build.TarballTree(tar_file)
+        tree.write_tree(cmd_env.BasicEnv(), dest_dir)
+        self.assertEquals(os.listdir(dest_dir), ["README"])
+
+        dest_dir = self.make_temp_dir()
+        tree = build.MultiTarballTree([tar_file, tar_file])
+        tree.write_tree(cmd_env.BasicEnv(), dest_dir)
         self.assertEquals(os.listdir(dest_dir), ["README"])
 
 
