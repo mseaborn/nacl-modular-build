@@ -118,6 +118,7 @@ class ModuleBase(object):
 
     def __init__(self, build_dir, prefix, install_dir, env_vars):
         self._env = cmd_env.VerboseWrapper(cmd_env.BasicEnv())
+        # TOOD: don't use getcwd here
         self._source_dir = os.path.join(os.getcwd(), "source", self.name)
         self._build_dir = build_dir
         self._prefix = prefix
@@ -426,6 +427,7 @@ def all_mods_shared_prefix():
     path = os.environ["PATH"]
     env_vars = []
 
+    # TODO: don't use getcwd here
     prefix = os.path.join(os.getcwd(), "shared/prefix")
     build_base = os.path.join(os.getcwd(), "shared/build")
     install_base = os.path.join(os.getcwd(), "shared/install")
