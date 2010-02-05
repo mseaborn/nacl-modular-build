@@ -8,9 +8,9 @@ import action_tree
 import cmd_env
 
 
-# TODO: don't hard code!
-nacl_dir = "/home/mseaborn/devel/nacl-trunk/src/native_client"
-nacl_src = "/home/mseaborn/devel/nacl-trunk/src"
+# This requires "src" to be a symlink pointing to NaCl's "trunk/src".
+nacl_src = os.path.join(os.getcwd(), "src")
+nacl_dir = os.path.join(nacl_src, "native_client")
 
 search_path = [
     os.path.join(nacl_src, subdir)
