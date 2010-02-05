@@ -10,8 +10,23 @@ import cmd_env
 
 # TODO: don't hard code!
 nacl_dir = "/home/mseaborn/devel/nacl-trunk/src/native_client"
-tar_dir = "/home/mseaborn/devel/nacl-trunk/src/third_party"
-patch_dir = "/home/mseaborn/devel/nacl-trunk/src/native_client/tools/patches"
+nacl_src = "/home/mseaborn/devel/nacl-trunk/src"
+
+search_path = [
+    os.path.join(nacl_src, subdir)
+    for subdir in [
+            "third_party/gcc",
+            "third_party/binutils",
+            "third_party/newlib",
+            "native_client/tools/patches"]]
+
+
+def find_file(name):
+    for dir_path in search_path:
+        filename = os.path.join(dir_path, name)
+        if os.path.exists(filename):
+            return filename
+    raise Exception("Couldn't find %r in %r" % (name, search_path))
 
 
 def get_one(lst):
@@ -69,7 +84,7 @@ class TarballTree(DirTree):
         self._tar_path = tar_path
 
     def write_tree(self, env, dest_dir):
-        untar(env, dest_dir, os.path.join(tar_dir, self._tar_path))
+        untar(env, dest_dir, self._tar_path)
 
 
 class MultiTarballTree(DirTree):
@@ -78,8 +93,7 @@ class MultiTarballTree(DirTree):
         self._tar_paths = tar_paths
 
     def write_tree(self, env, dest_dir):
-        untar_multiple(env, dest_dir, [os.path.join(tar_dir, tar_path)
-                                       for tar_path in self._tar_paths])
+        untar_multiple(env, dest_dir, self._tar_paths)
 
 
 class PatchedTree(DirTree):
@@ -90,8 +104,7 @@ class PatchedTree(DirTree):
 
     def write_tree(self, env, dest_dir):
         self._orig_tree.write_tree(env, dest_dir)
-        env.cmd(["patch", "-d", dest_dir, "-p1",
-                 "-i", os.path.join(patch_dir, self._patch_file)])
+        env.cmd(["patch", "-d", dest_dir, "-p1", "-i", self._patch_file])
 
 
 class EnvVarEnv(object):
@@ -157,13 +170,14 @@ def install_destdir(prefix_dir, install_dir, func):
     copy_onto(install_dir, prefix_dir)
 
 
-binutils_tree = PatchedTree(TarballTree("binutils/binutils-2.20.tar.bz2"), 
-                            "binutils-2.20.patch")
-gcc_tree = PatchedTree(MultiTarballTree(["gcc/gcc-core-4.2.2.tar.bz2",
-                                         "gcc/gcc-g++-4.2.2.tar.bz2"]),
-                       "gcc-4.2.2.patch")
-newlib_tree = PatchedTree(TarballTree("newlib/newlib-1.17.0.tar.gz"),
-                          "newlib-1.17.0.patch")
+binutils_tree = PatchedTree(TarballTree(find_file("binutils-2.20.tar.bz2")),
+                            find_file("binutils-2.20.patch"))
+gcc_tree = PatchedTree(MultiTarballTree(
+                           [find_file("gcc-core-4.2.2.tar.bz2"),
+                            find_file("gcc-g++-4.2.2.tar.bz2")]),
+                       find_file("gcc-4.2.2.patch"))
+newlib_tree = PatchedTree(TarballTree(find_file("newlib-1.17.0.tar.gz")),
+                          find_file("newlib-1.17.0.patch"))
 
 
 def Module(name, source, configure_cmd, make_cmd, install_cmd):
