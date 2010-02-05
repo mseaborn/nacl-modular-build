@@ -40,6 +40,9 @@ def write_file(filename, data):
     finally:
         fh.close()
 
+def mkdir_p(dir_path):
+    subprocess.check_call(["mkdir", "-p", dir_path])
+
 
 class DirTree(object):
 
@@ -162,7 +165,7 @@ def install_destdir(prefix_dir, install_dir, func):
     os.rename(os.path.join(temp_dir, prefix_dir.lstrip("/")), install_dir)
     # TODO: assert that temp_dir doesn't contain anything except prefix dirs
     remove_tree(temp_dir)
-    subprocess.check_call(["mkdir", "-p", prefix_dir])
+    mkdir_p(prefix_dir)
     copy_onto(install_dir, prefix_dir)
 
 
@@ -188,7 +191,7 @@ def Module(name, source, configure_cmd, make_cmd, install_cmd):
             return [arg % self._args for arg in cmd]
 
         def configure(self, log):
-            self._env.cmd(["mkdir", "-p", self._build_dir])
+            mkdir_p(self._build_dir)
             self._build_env.cmd(self._subst(configure_cmd))
 
         def make(self, log):
@@ -277,7 +280,7 @@ class ModuleNewlib(ModuleBase):
              os.path.join(nacl_dir, "src/trusted/service_runtime/include"),
              os.path.join(self._source_dir, "newlib/libc/sys/nacl")])
 
-        self._env.cmd(["mkdir", "-p", self._build_dir])
+        mkdir_p(self._build_dir)
         # CFLAGS has to be passed via environment because the
         # configure script can't cope with spaces otherwise.
         self._build_env.cmd(["sh", "-c",
@@ -311,7 +314,7 @@ class ModuleNcthreads(ModuleBase):
         pass
 
     def install(self, log):
-        self._env.cmd(["mkdir", "-p", self._build_dir])
+        mkdir_p(self._build_dir)
         def do_make(dest):
             self._build_env.cmd(
                 cmd_env.in_dir(nacl_dir) +
@@ -335,7 +338,7 @@ class ModuleLibnaclHeaders(ModuleBase):
         pass
 
     def install(self, log):
-        self._env.cmd(["mkdir", "-p", self._build_dir])
+        mkdir_p(self._build_dir)
         # This requires scons to pass PATH through so that it can run
         # nacl-gcc.  We set naclsdk_mode to point to an empty
         # directory so it can't get nacl-gcc from there.  However, if
@@ -366,7 +369,7 @@ class ModuleLibnacl(ModuleBase):
         pass
 
     def install(self, log):
-        self._env.cmd(["mkdir", "-p", self._build_dir])
+        mkdir_p(self._build_dir)
         # This requires scons to pass PATH through so that it can run
         # nacl-gcc.  We set naclsdk_mode to point to an empty
         # directory so it can't get nacl-gcc from there.  However, if
@@ -392,7 +395,7 @@ class TestModule(ModuleBase):
         pass
 
     def make(self, log):
-        self._env.cmd(["mkdir", "-p", self._build_dir])
+        mkdir_p(self._build_dir)
         write_file(os.path.join(self._build_dir, "hellow.c"), """
 #include <stdio.h>
 int main() {
