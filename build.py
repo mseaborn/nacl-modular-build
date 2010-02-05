@@ -455,14 +455,11 @@ def all_mods(top_dir, use_shared_prefix):
     return action_tree.make_node(nodes, name="all")
 
 
-class AllMods(object):
-
-    @action_tree.action_node
-    def all(self):
-        base_dir = os.getcwd()
-        return [("shared", all_mods(base_dir, use_shared_prefix=True)),
-                ("split", all_mods(base_dir, use_shared_prefix=False))]
+def main(args):
+    base_dir = os.getcwd()
+    top = all_mods(base_dir, use_shared_prefix=True)
+    action_tree.action_main(top, args)
 
 
 if __name__ == "__main__":
-    action_tree.action_main(AllMods().all, sys.argv[1:])
+    main(sys.argv[1:])
