@@ -213,11 +213,12 @@ def Module(name, source, configure_cmd, make_cmd, install_cmd):
 ModuleBinutils = Module(
     name="binutils",
     source=binutils_tree,
-    configure_cmd=["sh", "-c",
-                   "%(source_dir)s/configure "
-                   'CFLAGS="-DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
-                   "--prefix=%(prefix)s "
-                   "--target=nacl"],
+    configure_cmd=[
+        "sh", "-c",
+        "%(source_dir)s/configure "
+        'CFLAGS="-DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
+        "--prefix=%(prefix)s "
+        "--target=nacl"],
     make_cmd=["make", "-j4"],
     install_cmd=["make", "install", "DESTDIR=%(destdir)s"])
 
@@ -237,14 +238,16 @@ ModulePregcc = Module(
     source=gcc_tree,
     # CFLAGS has to be passed via environment because the
     # configure script can't cope with spaces otherwise.
-    configure_cmd=["sh", "-c",
-                   "CC=gcc "
-                   'CFLAGS="-Dinhibit_libc -D__gthr_posix_h -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
-                   "%(source_dir)s/configure "
-                   "--without-headers "
-                   "--enable-languages=c "
-                   "--disable-threads " # pregcc
-                   + common_gcc_options],
+    configure_cmd=[
+        "sh", "-c",
+        "CC=gcc "
+        'CFLAGS="-Dinhibit_libc -D__gthr_posix_h '
+            '-DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
+        "%(source_dir)s/configure "
+        "--without-headers "
+        "--enable-languages=c "
+        "--disable-threads " # pregcc
+        + common_gcc_options],
     # The default make target doesn't work - it gives libiberty
     # configure failures.  Need to do "all-gcc" instead.
     make_cmd=["make", "all-gcc", "-j2"],
@@ -255,16 +258,17 @@ ModuleFullgcc = Module(
     source=gcc_tree,
     # CFLAGS has to be passed via environment because the
     # configure script can't cope with spaces otherwise.
-    configure_cmd=["sh", "-c",
-                   "CC=gcc "
-                   'CFLAGS="-Dinhibit_libc -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
-                   "%(source_dir)s/configure "
-                   "--with-newlib "
-                   "--enable-threads=nacl "
-                   "--enable-tls "
-                   "--disable-libgomp "
-                   '--enable-languages="c,c++" '
-                   + common_gcc_options],
+    configure_cmd=[
+        "sh", "-c",
+        "CC=gcc "
+        'CFLAGS="-Dinhibit_libc -DNACL_ALIGN_BYTES=32 -DNACL_ALIGN_POW2=5" '
+        "%(source_dir)s/configure "
+        "--with-newlib "
+        "--enable-threads=nacl "
+        "--enable-tls "
+        "--disable-libgomp "
+        '--enable-languages="c,c++" '
+        + common_gcc_options],
     make_cmd=["make", "all", "-j2"],
     install_cmd=["make", "install", "DESTDIR=%(destdir)s"])
 
@@ -278,21 +282,23 @@ class ModuleNewlib(ModuleBase):
         # This is like exporting the kernel headers to glibc.
         # This should be done differently.
         self._env.cmd(
-            [os.path.join(nacl_dir, "src/trusted/service_runtime/export_header.py"),
+            [os.path.join(nacl_dir,
+                          "src/trusted/service_runtime/export_header.py"),
              os.path.join(nacl_dir, "src/trusted/service_runtime/include"),
              os.path.join(self._source_dir, "newlib/libc/sys/nacl")])
 
         mkdir_p(self._build_dir)
         # CFLAGS has to be passed via environment because the
         # configure script can't cope with spaces otherwise.
-        self._build_env.cmd(["sh", "-c",
-                       'CFLAGS="-m32 -march=i486 -msse2 -mfpmath=sse" '
-                       "%(source_dir)s/configure "
-                       "--enable-newlib-io-long-long "
-                       "--enable-newlib-io-c99-formats "
-                       "--prefix=%(prefix)s "
-                       "--target=nacl"
-                       % self._args])
+        self._build_env.cmd([
+                "sh", "-c",
+                'CFLAGS="-m32 -march=i486 -msse2 -mfpmath=sse" '
+                "%(source_dir)s/configure "
+                "--enable-newlib-io-long-long "
+                "--enable-newlib-io-c99-formats "
+                "--prefix=%(prefix)s "
+                "--target=nacl"
+                % self._args])
 
     def make(self, log):
         self._build_env.cmd(["sh", "-c", "make"])
