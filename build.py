@@ -12,8 +12,12 @@ import action_tree
 import cmd_env
 
 
-# This requires "src" to be a symlink pointing to NaCl's "trunk/src".
-nacl_src = os.path.join(os.getcwd(), "src")
+script_dir = os.path.abspath(os.path.dirname(__file__))
+# This allows "src" to be a symlink pointing to NaCl's "trunk/src".
+nacl_src = os.path.join(script_dir, "src")
+# Otherwise we expect to live inside the NaCl tree.
+if not os.path.exists(nacl_src):
+    nacl_src = os.path.normpath(os.path.join(script_dir, "..", "..", ".."))
 nacl_dir = os.path.join(nacl_src, "native_client")
 
 subdirs = [
