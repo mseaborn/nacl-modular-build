@@ -16,13 +16,12 @@ import cmd_env
 nacl_src = os.path.join(os.getcwd(), "src")
 nacl_dir = os.path.join(nacl_src, "native_client")
 
-search_path = [
-    os.path.join(nacl_src, subdir)
-    for subdir in [
-            "third_party/gcc",
-            "third_party/binutils",
-            "third_party/newlib",
-            "native_client/tools/patches"]]
+subdirs = [
+    "third_party/gcc",
+    "third_party/binutils",
+    "third_party/newlib",
+    "native_client/tools/patches"]
+search_path = [os.path.join(nacl_src, subdir) for subdir in subdirs]
 
 
 def find_file(name):
