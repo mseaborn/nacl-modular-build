@@ -332,6 +332,7 @@ class ModuleNcthreads(ModuleBase):
             self._build_env.cmd(
                 cmd_env.in_dir(nacl_dir) +
                 ["./scons", "MODE=nacl_extra_sdk", "install_libpthread",
+                 "USE_PATH=1",
                  "naclsdk_mode=custom:%s" %
                  os.path.join(dest, self._prefix.lstrip("/")),
                  "naclsdk_validate=0",
@@ -361,6 +362,7 @@ class ModuleLibnaclHeaders(ModuleBase):
             self._build_env.cmd(
                 cmd_env.in_dir(nacl_dir) +
                 ["./scons", "MODE=nacl_extra_sdk", "extra_sdk_update_header",
+                 "USE_PATH=1",
                  "nocpp=yes",
                  "naclsdk_mode=custom:%s" %
                  os.path.join(dest, self._prefix.lstrip("/")),
@@ -392,6 +394,7 @@ class ModuleLibnacl(ModuleBase):
             self._build_env.cmd(
                 cmd_env.in_dir(nacl_dir) +
                 ["./scons", "MODE=nacl_extra_sdk", "extra_sdk_update",
+                 "USE_PATH=1",
                  "naclsdk_mode=custom:%s" %
                  os.path.join(dest, self._prefix.lstrip("/")),
                  "naclsdk_validate=0",
