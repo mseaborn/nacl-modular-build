@@ -178,10 +178,11 @@ def install_destdir(prefix_dir, install_dir, func):
 
 binutils_tree = PatchedTree(TarballTree(find_file("binutils-2.20.tar.bz2")),
                             find_file("binutils-2.20.patch"))
+# TODO: Need to glob for multiple patch files
 gcc_tree = PatchedTree(MultiTarballTree(
                            [find_file("gcc-core-4.2.2.tar.bz2"),
                             find_file("gcc-g++-4.2.2.tar.bz2")]),
-                       find_file("gcc-4.2.2.patch"))
+                       find_file("000-gcc-4.2.2.patch"))
 newlib_tree = PatchedTree(TarballTree(find_file("newlib-1.17.0.tar.gz")),
                           find_file("newlib-1.17.0.patch"))
 
